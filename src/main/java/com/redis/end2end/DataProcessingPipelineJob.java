@@ -1,47 +1,38 @@
 package com.redis.end2end;
 
+import com.mongodb.client.model.InsertOneModel;
 import com.redis.end2end.model.EnrichedTransaction;
 import com.redis.end2end.model.Transaction;
-import com.redis.end2end.model.TransactionMapper;
-import com.redis.flink.RedisMessage;
+import com.redis.flink.sink.RedisObjectSerializer;
+import com.redis.flink.sink.RedisSink;
+import com.redis.flink.sink.RedisSinkBuilder;
+import com.redis.flink.sink.RedisSinkConfig;
 import com.redis.flink.source.partitioned.RedisSource;
 import com.redis.flink.source.partitioned.RedisSourceBuilder;
 import com.redis.flink.source.partitioned.RedisSourceConfig;
-import com.redis.flink.source.partitioned.reader.deserializer.RedisMessageDeserializer;
+import com.redis.flink.source.partitioned.reader.deserializer.RedisObjectDeserializer;
 import java.io.InputStream;
 import java.util.Properties;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.connector.mongodb.sink.MongoSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import redis.clients.jedis.JedisPooled;
+import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
+import org.bson.BsonDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.StreamEntryID;
 
 public class DataProcessingPipelineJob {
 
+  private static final Logger LOG = LoggerFactory.getLogger(DataProcessingPipelineJob.class);
+
   public static void main(String[] args) throws Exception {
-
-    try (JedisPooled jedis = new JedisPooled("redis", 6379)) {
-
-      //clean up for testing for now
-      try {
-        jedis.xgroupDestroy("test:0", "test-group");
-        jedis.xgroupDestroy("test:1", "test-group");
-        jedis.xgroupDestroy("test:2", "test-group");
-        jedis.xgroupDestroy("test:3", "test-group");
-        jedis.del("topic:test:config");
-        jedis.ftDropIndexDD("test-split-index");
-      } catch (Exception e) {
-        //ignore
-      }
-      StreamEntryID streamEntryID = new StreamEntryID(0, 0);
-      //StreamEntryID streamEntryID =StreamEntryID.XGROUP_LAST_ENTRY;
-      jedis.xgroupCreate("test:0", "test-group", streamEntryID, true);
-      jedis.xgroupCreate("test:1", "test-group", streamEntryID, true);
-      jedis.xgroupCreate("test:2", "test-group", streamEntryID, true);
-      jedis.xgroupCreate("test:3", "test-group", streamEntryID, true);
-    }
-
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
     //load configuration properties
@@ -52,43 +43,91 @@ public class DataProcessingPipelineJob {
     }
 
     int redisTopicPartition = Integer.parseInt(config.getProperty("redis.topic.partitions"));
-    long checkpointInterval =  Long.parseLong(config.getProperty("flink.checkpointing.interval"));
+    long checkpointInterval = Long.parseLong(config.getProperty("flink.checkpointing.interval"));
     long bufferTimeout = Long.parseLong(config.getProperty("flink.buffer.timeout"));
-    env.enableCheckpointing(checkpointInterval);
-    env.setBufferTimeout(bufferTimeout);
-    env.setParallelism(redisTopicPartition);
-
     String redisHost = config.getProperty("redis.host");
     int redisPort = Integer.parseInt(config.getProperty("redis.port"));
     String redisTopic = config.getProperty("redis.topic");
 
+    //setup flink environment parallelism and checkpointing
+    env.enableCheckpointing(checkpointInterval);
+    env.setBufferTimeout(bufferTimeout);
+    env.setParallelism(redisTopicPartition);
+
     // build redis source and stream
     RedisSourceConfig sourceConfig = RedisSourceConfig.builder().host(redisHost).port(redisPort)
-        .consumerGroup("test-group").topicName(redisTopic).numPartitions(redisTopicPartition)
-        .build();
-    RedisSource<RedisMessage> redisSource = new RedisSourceBuilder<>(sourceConfig,
-        new RedisMessageDeserializer()).build();
-    TypeInformation<RedisMessage> typeInfo = TypeInformation.of(RedisMessage.class);
-    DataStream<RedisMessage> redisStream = env.fromSource(redisSource,
+        .consumerGroup("transaction-group").topicName(redisTopic).numPartitions(redisTopicPartition)
+        .startingId(StreamEntryID.XGROUP_LAST_ENTRY).requireAck(true).build();
+
+    RedisSource<Transaction> redisSource = new RedisSourceBuilder<>(sourceConfig,
+        new RedisObjectDeserializer(Transaction.class)).build();
+
+    TypeInformation<Transaction> typeInfo = TypeInformation.of(Transaction.class);
+    DataStream<Transaction> transactionStream = env.fromSource(redisSource,
         WatermarkStrategy.noWatermarks(), "redis_transaction_stream", typeInfo);
 
-    //transform from RedisMessage to Transaction
-    DataStream<Transaction> transactionStream = redisStream.map(TransactionMapper::of).name("TransformRedisMessageToTransaction");
 
-    //make sure all processing for same account is done by same task to keep the order(keyby accountId,transform from Transaction to EnrichedTransaction
-    DataStream<Transaction> filteredStream = transactionStream.keyBy(t -> t.accountId).filter(t -> t.amount > 0).name("FilterPositiveTransactions");
+    /* make sure all processing for same account is done by same taskmanager to keep the order(keyby accountId)
+     Transctions with zero or less value are sent to DeadLetterStream using OutputTag */
+    final OutputTag<Transaction> DLSTag = new OutputTag<Transaction>("DLSOutput") {
+    };
+
+    SingleOutputStreamOperator<Transaction> filteredStream = transactionStream.keyBy(
+            t -> t.accountId).process(new FilterTransactionFunction(DLSTag))
+        .name("FilterPositiveTransactions");
 
     //transform and enrich
-    DataStream<EnrichedTransaction>  enrichedTransactionStream =  filteredStream
-        .map(t -> new EnrichedTransaction(t, 5)).name("EnrichedTransaction");
+    DataStream<EnrichedTransaction> enrichedTransactionStream = filteredStream.map(
+        t -> new EnrichedTransaction(t, 5)).name("EnrichedTransaction");
 
     enrichedTransactionStream.print();
-    /*DataStream< Tuple3<String, Long,Long>> latencyStream = enrichedTransactionStream
-        .map(t -> new Tuple3<String, Long ,Long>("Latency", t.accountId ,System.currentTimeMillis() - t.timestamp)).returns(Types.TUPLE(Types.STRING, Types.LONG,Types.LONG)
-        ).name("CalculateLatency");;
+    MongoSink<EnrichedTransaction> mongoSink = MongoSink.<EnrichedTransaction>builder()
+        .setUri("mongodb://mongo:passwordm@mongo:27017/").setDatabase("transaction_db")
+        .setCollection("transactions").setBatchSize(1000).setBatchIntervalMs(1000).setMaxRetries(3)
+        .setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE).setSerializationSchema(
+            (transaction, context) -> new InsertOneModel<>(BsonDocument.parse(
+                "{_id: " + transaction.accountId + ", amount: " + transaction.amount
+                    + ", timestamp: " + transaction.timestamp + ", transactionFee: "
+                    + transaction.transactionFee + "}"))).build();
+    enrichedTransactionStream.sinkTo(mongoSink);
 
-    latencyStream.print();*/
+    //Dead letter stream
+    DataStream<Transaction> DLSOutput = filteredStream.getSideOutput(DLSTag);
+    // build redis sink for DLS
+    String deadLetterTopic = config.getProperty("redis.dls.topic");
+    RedisSinkConfig sinkConfig = RedisSinkConfig.builder().host(redisHost).port(redisPort)
+        .topicName(deadLetterTopic).numPartitions(redisTopicPartition).build();
+
+    RedisSink<Transaction> redisDLSSink = new RedisSinkBuilder<>(
+        new RedisObjectSerializer<Transaction>(), sinkConfig).keyExtractor(
+        t -> Long.toString(t.getAccountId())).build();
+    DLSOutput.sinkTo(redisDLSSink).name("transaction_DLS_redis_stream");
 
     env.execute("BusinessPipelineJob");
+  }
+
+  public static void buildWorkflow() {
+
+  }
+
+
+  private static class FilterTransactionFunction extends ProcessFunction<Transaction, Transaction> {
+
+    private final OutputTag<Transaction> DLSTag;
+
+    public FilterTransactionFunction(OutputTag<Transaction> DLSTag) {
+      this.DLSTag = DLSTag;
+    }
+
+    @Override
+    public void processElement(Transaction transaction, Context ctx, Collector<Transaction> out)
+        throws Exception {
+      //if transaction amount is less than zero send to DLS
+      if (transaction.amount <= 0) {
+        ctx.output(DLSTag, transaction);
+        return;
+      }
+      out.collect(transaction);
+    }
   }
 }

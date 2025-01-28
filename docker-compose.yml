@@ -1,6 +1,6 @@
 services:
   jobmanager:
-    image: flink:latest
+    image: flink:1.20
     container_name: jobmanager
     ports:
       - "8081:8081"
@@ -13,12 +13,13 @@ services:
   #        restart-strategy.fixed-delay.attempts: 100
   #        restart-strategy.fixed-delay.delay: 0 s
   taskmanager:
-    image: flink:latest
+    image: flink:1.20
     container_name: taskmanager
     depends_on:
       - jobmanager
       - redis
       - kafka
+      - mongo
     command: taskmanager
     scale: 1
     environment:
@@ -31,13 +32,13 @@ services:
   #        restart-strategy.fixed-delay.delay: 0 s
 
   redis:
-    image: redis/redis-stack
+    image: redis/redis-stack:7.4.0-v2
     ports:
       - "6379:6379"
       - "8001:8001"
 
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:3.9.0
     container_name: kafka
     environment:
       KAFKA_NODE_ID: 1
@@ -54,3 +55,21 @@ services:
       KAFKA_NUM_PARTITIONS: 1
     ports:
       - "9092:9092"
+
+  mongo:
+    image: mongo:8.0.4
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: passwordm
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    ports:
+      - 8082:8081
+    depends_on:
+      - mongo
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: mongo
+      ME_CONFIG_MONGODB_ADMINPASSWORD: passwordm
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:passwordm@mongo:27017/
+      ME_CONFIG_BASICAUTH: false

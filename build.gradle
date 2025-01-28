@@ -15,7 +15,9 @@ ext {
     jedisVersion = '5.2.0'
     kryoVersion = '2.24.0'
     objenesisVersion = '2.1'
-    flinkConnectorKafkaVersion = '3.4.0-1.20'
+    kafkaFlinkConnectorVersion = '3.4.0-1.20'
+    redisFlinkConnectorVersion = '0.0.2'
+    mongoFlinkConnectorVersion = '1.2.0-1.19'
 
 }
 
@@ -36,7 +38,8 @@ configurations {
 }
 
 dependencies {
-    flinkShadowJar files('../redis-flink-connector/core/redis-flink-connector/build/libs/redis-flink-connector-plain.jar')
+    //flinkShadowJar files('../redis-flink-connector/core/redis-flink-connector/build/libs/redis-flink-connector-plain.jar')
+    flinkShadowJar "com.redis:redis-flink-connector:${redisFlinkConnectorVersion}"
     flinkShadowJar "redis.clients:jedis:${jedisVersion}"
     implementation "com.esotericsoftware.kryo:kryo:${kryoVersion}"
     implementation "org.objenesis:objenesis:${objenesisVersion}"
@@ -50,9 +53,9 @@ dependencies {
     runtimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
 
     //flink connectors
-    flinkShadowJar "org.apache.flink:flink-connector-kafka:${flinkConnectorKafkaVersion}"
-    flinkShadowJar 'org.apache.flink:flink-connector-jdbc:3.2.0-1.19'
-    flinkShadowJar 'com.mysql:mysql-connector-j:9.1.0'
+    flinkShadowJar "org.apache.flink:flink-connector-kafka:${kafkaFlinkConnectorVersion}"
+    flinkShadowJar "org.apache.flink:flink-connector-mongodb:${mongoFlinkConnectorVersion}"
+
     // Run in IDE
     runtimeOnly "org.apache.flink:flink-clients:${flinkVersion}"
 }

@@ -1,7 +1,6 @@
 package com.redis.end2end;
 
-import com.redis.end2end.model.TransactionMapper;
-import com.redis.flink.sink.RedisSerializer;
+import com.redis.flink.sink.RedisObjectSerializer;
 import com.redis.flink.sink.RedisSink;
 import com.redis.flink.sink.RedisSinkBuilder;
 import com.redis.flink.sink.RedisSinkConfig;
@@ -59,14 +58,13 @@ public class FromKafkaToRedisJob {
         .numPartitions(redisTopicPartition).build();
 
     RedisSink<Transaction> redisSink = new RedisSinkBuilder<>(
-        (RedisSerializer<Transaction>) transaction -> {
-          LOG.debug("Serializing transaction: " + transaction);
-          return TransactionMapper.toRedisMessage(transaction);
-        }, sinkConfig).build();
+       new RedisObjectSerializer<Transaction>(), sinkConfig).keyExtractor(t-> Long.toString(t.getAccountId())).build();
     transactionStream.sinkTo(redisSink).name("transaction_redis_stream");
 
     env.execute("FromKafkaToRedisJob");
   }
-
-
+  
+  public static void defineWorkflow() {
+    
+  }
 }

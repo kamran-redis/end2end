@@ -1,6 +1,5 @@
 package com.redis.end2end;
 
-import static java.lang.Long.parseLong;
 
 import com.redis.end2end.model.Transaction;
 import java.io.InputStream;
@@ -23,19 +22,17 @@ public class DataGenJob {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
 
-
-    //load kafka connection properties
+    //load properties
     Properties config = new Properties();
     try (InputStream stream = DataGenJob.class.getClassLoader().getResourceAsStream(
         "end2end.properties")) {
       config.load(stream);
     }
 
-    long checkpointInterval =  Long.parseLong(config.getProperty("flink.checkpointing.interval"));
+    long checkpointInterval = Long.parseLong(config.getProperty("flink.checkpointing.interval"));
     long bufferTimeout = Long.parseLong(config.getProperty("flink.buffer.timeout"));
     env.enableCheckpointing(checkpointInterval);
     env.setBufferTimeout(bufferTimeout);
-
 
     String kafkaTopic = config.getProperty("kafka.topic");
     String bootstrapServers = config.getProperty("kafka.bootstrap.servers");
@@ -44,7 +41,6 @@ public class DataGenJob {
     DataGeneratorSource<Transaction> transactionSource = new DataGeneratorSource<>(
         GenerateTransaction::getTransaction, Long.MAX_VALUE, RateLimiterStrategy.perSecond(10),
         Types.POJO(Transaction.class));
-
     //Create a stream from the source
     DataStream<Transaction> transactionStream = env.fromSource(transactionSource,
         WatermarkStrategy.noWatermarks(), "transaction_generator");
@@ -53,7 +49,8 @@ public class DataGenJob {
     KafkaRecordSerializationSchema<Transaction> transactionSerializer = KafkaRecordSerializationSchema.<Transaction>builder()
         .setTopic(kafkaTopic)
         .setValueSerializationSchema(new JsonSerializationSchema<>())
-        .setKeySerializationSchema(transaction -> String.valueOf(transaction.getAccountId()).getBytes())
+        .setKeySerializationSchema(
+            transaction -> String.valueOf(transaction.getAccountId()).getBytes())
         .build();
 
     KafkaSink<Transaction> transactionKafkaSink = KafkaSink.<Transaction>builder()
@@ -69,8 +66,7 @@ public class DataGenJob {
   public static class GenerateTransaction {
 
     public static Transaction getTransaction(long id) {
-
-      return new Transaction(id , System.currentTimeMillis(), id % 10);
+      return new Transaction(id, System.currentTimeMillis(), id % 10);
     }
 
   }

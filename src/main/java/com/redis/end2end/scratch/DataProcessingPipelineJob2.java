@@ -55,7 +55,7 @@ public class DataProcessingPipelineJob2 {
     DataStream<EnrichedTransaction>  enrichedTransactionStream =  filteredStream
         .map(t -> new EnrichedTransaction(t, 5)).name("EnrichedTransaction");
 
-    //enrichedTransactionStream.print();
+    enrichedTransactionStream.print();
 
     DataStream< Tuple3<String, Long,Long>> latencyStream = enrichedTransactionStream
         .map(t -> new Tuple3<String, Long ,Long>("Latency", t.accountId ,System.currentTimeMillis() - t.timestamp)).returns(Types.TUPLE(Types.STRING, Types.LONG,Types.LONG)
