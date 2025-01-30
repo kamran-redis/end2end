@@ -96,8 +96,49 @@ The application can be configured through:
 - [`build.gradle`](build.gradle) for project dependencies
 - Properties files in `src/main/resources/` for application configuration
 
-## Monitoring
+## Monitoring and Metrics
 
+### Available Dashboards
 - Flink Dashboard: http://localhost:8081
 - RedisInsight: http://localhost:8001
 - MongoDB Express: http://localhost:8082
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin)
+
+### Performance Metrics
+The pipeline includes comprehensive performance monitoring:
+
+1. **Transaction Metrics**
+   - Total transaction count
+   - Valid vs. Invalid transaction ratio
+   - Transactions per second
+
+2. **Processing Metrics**
+   - Processing time histogram
+   - Average latency
+   - Error rates
+
+3. **System Metrics**
+   - JVM metrics
+   - System resource usage
+   - Network I/O
+
+### Setting up Grafana Dashboard
+1. Access Grafana at http://localhost:3000 (login: admin/admin)
+2. Add Prometheus as a data source:
+   - URL: http://prometheus:9090
+   - Access: Server (default)
+3. Import the provided dashboard:
+   - Go to Dashboards → Import
+   - Upload the [`grafana-dashboard.json`](grafana-dashboard.json) file
+
+### Custom Metrics
+Custom metrics are implemented in [`PipelineMetrics.java`](src/main/java/com/redis/end2end/metrics/PipelineMetrics.java) and can be extended as needed. Key metrics include:
+
+```java
+metrics.incrementTotalTransactions();    // Track total transactions
+metrics.incrementValidTransactions();     // Track valid transactions
+metrics.incrementInvalidTransactions();   // Track invalid transactions
+metrics.recordProcessingTime(ms);        // Record processing latency
+metrics.incrementProcessingErrors();      // Track errors
+```
