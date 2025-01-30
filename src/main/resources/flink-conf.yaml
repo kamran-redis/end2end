@@ -1,0 +1,18 @@
+metrics.reporter.prometheus.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+metrics.reporter.prometheus.port: 9249
+
+# Enable JMX metrics reporter
+metrics.reporter.jmx.class: org.apache.flink.metrics.jmx.JMXReporter
+metrics.reporter.jmx.port: 8789
+
+# Configure system metrics
+metrics.system-resource: true
+metrics.latency.interval: 5000
+
+# Configure scope formats
+metrics.scope.jm: <host>.jobmanager
+metrics.scope.jm.job: <host>.jobmanager.<job_name>
+metrics.scope.tm: <host>.taskmanager.<tm_id>
+metrics.scope.tm.job: <host>.taskmanager.<tm_id>.<job_name>
+metrics.scope.task: <host>.taskmanager.<tm_id>.<job_name>.<task_name>.<subtask_index>
+metrics.scope.operator: <host>.taskmanager.<tm_id>.<job_name>.<operator_name>.<subtask_index>

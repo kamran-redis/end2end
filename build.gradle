@@ -18,6 +18,7 @@ ext {
     kafkaFlinkConnectorVersion = '3.4.0-1.20'
     redisFlinkConnectorVersion = '0.0.2'
     mongoFlinkConnectorVersion = '1.2.0-1.19'
+    prometheusVersion = '0.16.0'
 
 }
 
@@ -47,6 +48,9 @@ dependencies {
     implementation "org.apache.flink:flink-streaming-java:${flinkVersion}"
     implementation "org.apache.flink:flink-json:${flinkVersion}"
     implementation "org.apache.flink:flink-connector-base:${flinkVersion}"
+    implementation "org.apache.flink:flink-metrics-prometheus:${flinkVersion}"
+    runtimeOnly "io.prometheus:simpleclient:${prometheusVersion}"
+    runtimeOnly "io.prometheus:simpleclient_httpserver:${prometheusVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"

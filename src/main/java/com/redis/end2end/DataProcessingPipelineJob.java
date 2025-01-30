@@ -3,6 +3,7 @@ package com.redis.end2end;
 import com.mongodb.client.model.InsertOneModel;
 import com.redis.end2end.model.EnrichedTransaction;
 import com.redis.end2end.model.Transaction;
+import com.redis.end2end.metrics.PipelineMetrics;
 import com.redis.flink.sink.RedisObjectSerializer;
 import com.redis.flink.sink.RedisSink;
 import com.redis.flink.sink.RedisSinkBuilder;
@@ -112,22 +113,39 @@ public class DataProcessingPipelineJob {
 
 
   private static class FilterTransactionFunction extends ProcessFunction<Transaction, Transaction> {
-
     private final OutputTag<Transaction> DLSTag;
+    private transient PipelineMetrics metrics;
 
     public FilterTransactionFunction(OutputTag<Transaction> DLSTag) {
       this.DLSTag = DLSTag;
     }
 
     @Override
+    public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
+      super.open(parameters);
+      metrics = new PipelineMetrics(getRuntimeContext());
+    }
+
+    @Override
     public void processElement(Transaction transaction, Context ctx, Collector<Transaction> out)
         throws Exception {
-      //if transaction amount is less than zero send to DLS
-      if (transaction.amount <= 0) {
-        ctx.output(DLSTag, transaction);
-        return;
+      long startTime = System.currentTimeMillis();
+      metrics.incrementTotalTransactions();
+      
+      try {
+        if (transaction.amount <= 0) {
+          metrics.incrementInvalidTransactions();
+          ctx.output(DLSTag, transaction);
+          return;
+        }
+        metrics.incrementValidTransactions();
+        out.collect(transaction);
+      } catch (Exception e) {
+        metrics.incrementProcessingErrors();
+        throw e;
+      } finally {
+        metrics.recordProcessingTime(System.currentTimeMillis() - startTime);
       }
-      out.collect(transaction);
     }
   }
 }
