@@ -49,6 +49,8 @@ public class RedisSample {
     int parallelism = argProperties.getInt("parallelism", 1);
     String redisHost = argProperties.get("redis.host", "localhost");
     int redisPort = argProperties.getInt("redis.port", 6379);
+    String redisPassword = argProperties.get("redis.password", "");
+    String redisUser = argProperties.get("redis.user", "default");
     String redisTopic = argProperties.get("redis,topic", "simple:topic");
     String redisConsumerGroup = argProperties.get("redis.consumer.group", "simple:group");
 
@@ -69,7 +71,9 @@ public class RedisSample {
         "data_generator");
 
     //Redis Sink
-    RedisSinkConfig sinkConfig = RedisSinkConfig.builder().host(redisHost).port(redisPort)
+
+
+    RedisSinkConfig sinkConfig = RedisSinkConfig.builder().host(redisHost).port(redisPort).password(redisPassword).user(redisUser)
         .topicName(redisTopic).numPartitions(redisTopicPartition).build();
 
     RedisSink<Event> redisSink = new RedisSinkBuilder<>(new RedisObjectSerializer<Event>(),
@@ -77,7 +81,7 @@ public class RedisSample {
     dataStream.sinkTo(redisSink).name("redis_event_sink");
 
     //Redis Source
-    RedisSourceConfig sourceConfig = RedisSourceConfig.builder().host(redisHost).port(redisPort)
+    RedisSourceConfig sourceConfig = RedisSourceConfig.builder().host(redisHost).port(redisPort).password(redisPassword).user(redisUser)
         .consumerGroup(redisConsumerGroup).topicName(redisTopic).numPartitions(redisTopicPartition)
         .startingId(StreamEntryID.XGROUP_LAST_ENTRY).requireAck(true).build();
 
