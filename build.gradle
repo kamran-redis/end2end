@@ -1,6 +1,7 @@
 plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'application'
+    id("io.freefair.lombok") version "8.12"
 }
 
 repositories {
@@ -16,7 +17,7 @@ ext {
     kryoVersion = '2.24.0'
     objenesisVersion = '2.1'
     kafkaFlinkConnectorVersion = '3.4.0-1.20'
-    redisFlinkConnectorVersion = '0.0.2'
+    redisFlinkConnectorVersion = '0.0.3'
     mongoFlinkConnectorVersion = '1.2.0-1.19'
 
 }
@@ -46,10 +47,11 @@ dependencies {
     implementation "org.apache.flink:flink-java:${flinkVersion}"
     implementation "org.apache.flink:flink-streaming-java:${flinkVersion}"
     implementation "org.apache.flink:flink-json:${flinkVersion}"
+
     implementation "org.apache.flink:flink-connector-base:${flinkVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    //runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    //runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    //runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
     runtimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
 
     //flink connectors
@@ -58,6 +60,7 @@ dependencies {
 
     // Run in IDE
     runtimeOnly "org.apache.flink:flink-clients:${flinkVersion}"
+    runtimeOnly "org.apache.flink:flink-runtime-web:${flinkVersion}"
 }
 
 version = '1.0-SNAPSHOT'
