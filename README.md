@@ -54,7 +54,7 @@ The application integrates with the following services:
 
 1. Start the infrastructure:
    ```bash
-   docker-compose up -d
+   docker-compose --profile end2end up -d
    ```
 
 2. Build the application:
