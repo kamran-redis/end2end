@@ -9,6 +9,8 @@ import com.redis.flink.source.partitioned.RedisSourceBuilder;
 import com.redis.flink.source.partitioned.RedisSourceConfig;
 import com.redis.flink.source.partitioned.reader.deserializer.RedisObjectDeserializer;
 import java.io.IOException;
+import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Random;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -44,6 +46,7 @@ public class RedisSample {
 
     final String jobName = argProperties.get("jobname", "REDIS_SAMPLE_" + new Random().nextInt(1000));
     int rateLimit = argProperties.getInt("ratelimit", 1000);
+    int payloadSize = argProperties.getInt("payloadsize", 100);
     long maxRecords = argProperties.getLong("maxrecords", Long.MAX_VALUE);
     int parallelism = argProperties.getInt("parallelism", 1);
     String redisHost = argProperties.get("redis.host", "localhost");
@@ -64,7 +67,8 @@ public class RedisSample {
     env.setParallelism(parallelism);
 
     //Sample data source
-    DataGeneratorSource<Event> dataSource = new DataGeneratorSource<>(GenerateData::getData,
+    GenerateData generateData = new GenerateData(payloadSize);
+    DataGeneratorSource<Event> dataSource = new DataGeneratorSource<>(generateData::getData,
         maxRecords, RateLimiterStrategy.perSecond(rateLimit), Types.POJO(Event.class));
     DataStream<Event> dataStream = env.fromSource(dataSource, WatermarkStrategy.noWatermarks(),
         "data_generator");
@@ -96,10 +100,22 @@ public class RedisSample {
     env.execute(jobName);
   }
 
-  public static class GenerateData {
+  public static class GenerateData implements Serializable {
 
-    public static Event getData(long id) {
-      return new Event(Long.toString(id), System.currentTimeMillis());
+    String payload = "payload";
+
+    public GenerateData(int payloadSize) {
+      if (payloadSize <= 0) {
+         payload= "";
+      } else {
+        char [] charArray  = new char[payloadSize];
+        Arrays.fill(new char[payloadSize], '*');
+        payload = new String(charArray);
+      }
+
+    }
+    public  Event getData(long id) {
+      return new Event(Long.toString(id), System.currentTimeMillis(), payload);
     }
   }
 
@@ -112,6 +128,7 @@ public class RedisSample {
 
     String id;
     long timestamp;
+    String payload;
   }
 
 
