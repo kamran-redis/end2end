@@ -1,6 +1,5 @@
 package com.redis.end2end.simple;
 
-import com.redis.end2end.scratch.model.Entry;
 import com.redis.flink.sink.RedisObjectSerializer;
 import com.redis.flink.sink.RedisSink;
 import com.redis.flink.sink.RedisSinkBuilder;
