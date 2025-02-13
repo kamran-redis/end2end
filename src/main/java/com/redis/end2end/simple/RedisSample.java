@@ -186,11 +186,11 @@ public class RedisSample {
     @Override
     public void open(Configuration parameters) throws Exception {
       super.open(parameters);
-      eventTimeLag = getRuntimeContext().getMetricGroup().histogram(getRuntimeContext().getJobInfo().getJobName() + "_" + "MY1eventTimeLag",
+      eventTimeLag = getRuntimeContext().getMetricGroup().histogram(getRuntimeContext().getJobInfo().getJobName() + "_" + "eventTimeLag",
           new DescriptiveStatisticsHistogram(entryTimeLagRingBufferSize));
       counter = getRuntimeContext()
           .getMetricGroup()
-          .counter(getRuntimeContext().getJobInfo().getJobName() + "_"  + "MY2eventCounter");
+          .counter(getRuntimeContext().getJobInfo().getJobName() + "_"  + "eventCounter");
     }
   }
 }

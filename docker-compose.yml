@@ -97,7 +97,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.26.1
-    profiles: [end2end,simple]
+    profiles: [end2end,perf]
     ports:
       - 9090:9090
     volumes:
