@@ -32,8 +32,8 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 8
         env.log.level: WARN
+  #        taskmanager.numberOfTaskSlots: 8
   #        restart-strategy: fixed-delay
   #        restart-strategy.fixed-delay.attempts: 100
   #        restart-strategy.fixed-delay.delay: 0 s

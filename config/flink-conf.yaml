@@ -1,11 +1,11 @@
 blob.server.port: 6124
 metrics.reporter.prom.port: 9249
-taskmanager.memory.process.size: 1024m
+taskmanager.memory.process.size: 8192m
 metrics.reporter.jmx.class: org.apache.flink.metrics.jmx.JMXReporter
 metrics.reporter.jmx.port: 9020-9030
-taskmanager.numberOfTaskSlots: 8
+taskmanager.numberOfTaskSlots: 32
 jobmanager.rpc.address: jobmanager
 metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
-jobmanager.memory.process.size: 1024m
+jobmanager.memory.process.size: 4096m
 query.server.port: 6125
 env.log.level: WARN
