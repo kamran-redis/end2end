@@ -74,6 +74,14 @@ sourceSets {
     javadoc.classpath += configurations.flinkShadowJar
 }
 
+task printRuntimeClasspath {
+    def runtimeClasspath = sourceSets.main.runtimeClasspath
+    inputs.files( runtimeClasspath )
+    doLast {
+        println runtimeClasspath.join( File.pathSeparator )
+    }
+}
+
 run.classpath = sourceSets.main.runtimeClasspath
 
 
