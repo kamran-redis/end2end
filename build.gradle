@@ -17,9 +17,10 @@ ext {
     kryoVersion = '2.24.0'
     objenesisVersion = '2.1'
     kafkaFlinkConnectorVersion = '3.4.0-1.20'
-    redisFlinkConnectorVersion = '0.0.3'
+    redisFlinkConnectorVersion = '0.0.5'
     mongoFlinkConnectorVersion = '1.2.0-1.19'
-
+    fileFlinkConnectorVersion = '1.20.0'
+    flinkStatebackendRocksdbVersion  = '1.20.0'
 }
 
 configurations {
@@ -56,7 +57,9 @@ dependencies {
 
     //flink connectors
     flinkShadowJar "org.apache.flink:flink-connector-kafka:${kafkaFlinkConnectorVersion}"
+    flinkShadowJar "org.apache.flink:flink-connector-files:${fileFlinkConnectorVersion}"
     flinkShadowJar "org.apache.flink:flink-connector-mongodb:${mongoFlinkConnectorVersion}"
+    flinkShadowJar "org.apache.flink:flink-statebackend-rocksdb:${flinkStatebackendRocksdbVersion}"
 
     // Run in IDE
     runtimeOnly "org.apache.flink:flink-clients:${flinkVersion}"

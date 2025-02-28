@@ -19,14 +19,14 @@ public class ChaosProducerJob {
   private static final Logger LOG = LoggerFactory.getLogger(ChaosProducerJob.class);
 
   static String redisHost;
-  static int redisPort ;
+  static int redisPort;
   static String redisTopic;
   static int parallelism;
   static int checkpointInterval;
   static int flinkBufferTimeout;
+  static String flinkCheckpointStorage;
 
   public static void main(String args[]) throws Exception {
-
 
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -38,47 +38,40 @@ public class ChaosProducerJob {
     parallelism = argProperties.getInt("parallelism", 1);
     checkpointInterval = argProperties.getInt("flink.checkpointing.interval", 10000);
     flinkBufferTimeout = argProperties.getInt("flink.buffer.timeout", 1000);
-
+    flinkCheckpointStorage= argProperties.get("flink.checkpointstorage", "file:///tmp/checkpoint/Producer");
 
     env.setParallelism(parallelism);
     env.enableCheckpointing(checkpointInterval);
+    env.getCheckpointConfig().setCheckpointStorage(flinkCheckpointStorage);
 
     buildWorkflow(env);
     env.execute("ChaosProducerJob");
-
-    //generate predictable data
-    //Generate Sample data
-
-    //write to Redis stream
-    //check output matches redis streams
-
-    //for serialization testing write to
-
   }
 
   public static void buildWorkflow(StreamExecutionEnvironment env) {
     DataGeneratorSource<ChaosEvent> source = new DataGeneratorSource<>(
-        GenerateData::getTransaction, Long.MAX_VALUE, RateLimiterStrategy.perSecond(1),
+        GenerateData::getEvent, Long.MAX_VALUE, RateLimiterStrategy.perSecond(1),
         Types.POJO(ChaosEvent.class));
     //Create a stream from the source
-    DataStream<ChaosEvent> transactionStream = env.fromSource(source,
+    DataStream<ChaosEvent> eventStream = env.fromSource(source,
         WatermarkStrategy.noWatermarks(), "chaos_generator");
 
     RedisSinkConfig sinkConfig = RedisSinkConfig.builder().host(redisHost).port(redisPort)
         .topicName(redisTopic)
-        .numPartitions(1).build();
-
+        .numPartitions(1).flushOnCheckpoint(false).build();
 
     RedisSink<ChaosEvent> redisSink = new RedisSinkBuilder<>(
-        new RedisObjectSerializer<ChaosEvent>(), sinkConfig).keyExtractor(t-> Long.toString(t.getId())).build();
-    transactionStream.sinkTo(redisSink).name("redis_stream");
+        new RedisObjectSerializer<ChaosEvent>(), sinkConfig).keyExtractor(
+        t -> Long.toString(t.getId())).build();
+    eventStream.sinkTo(redisSink).name("redis_stream");
   }
 
   public static class GenerateData {
 
-    public static ChaosEvent getTransaction(long id) {
+    public static ChaosEvent getEvent(long id) {
       System.out.println(id);
-      return new  ChaosEvent(id, System.currentTimeMillis(), Long.toString(id));
+      return new ChaosEvent(id, System.currentTimeMillis(), Long.toString(id));
     }
   }
+
 }
