@@ -69,7 +69,7 @@ public class ChaosProcessorJob {
     TypeInformation<ChaosEvent> typeInfo = TypeInformation.of(ChaosEvent.class);
     DataStream<ChaosEvent> eventStream = env.fromSource(redisSource,
         WatermarkStrategy.noWatermarks(), "redis_processing_stream", typeInfo);
-
+    System.out.println("File Sink Path: " + Path.CUR_DIR + "/checkpoint/sink");
     final FileSink<String> sink = FileSink
         .forRowFormat(new Path(Path.CUR_DIR + "/checkpoint/sink"),
             new SimpleStringEncoder<String>("UTF-8"))

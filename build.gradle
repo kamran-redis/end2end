@@ -17,7 +17,7 @@ ext {
     kryoVersion = '2.24.0'
     objenesisVersion = '2.1'
     kafkaFlinkConnectorVersion = '3.4.0-1.20'
-    redisFlinkConnectorVersion = '0.0.5'
+    redisFlinkConnectorVersion = '0.0.9'
     mongoFlinkConnectorVersion = '1.2.0-1.19'
     fileFlinkConnectorVersion = '1.20.0'
     flinkStatebackendRocksdbVersion  = '1.20.0'
@@ -81,6 +81,7 @@ task printRuntimeClasspath {
     def runtimeClasspath = sourceSets.main.runtimeClasspath
     inputs.files( runtimeClasspath )
     doLast {
+        print "export CLASSPATH="
         println runtimeClasspath.join( File.pathSeparator )
     }
 }
