@@ -29,6 +29,8 @@ public class ChaosProcessorJob {
   static int checkpointInterval;
   static int flinkBufferTimeout;
   static String flinkCheckpointStorage;
+  static String redisUser;
+  static String redisPassword;
 
 
   public static void main(String[] args) throws Exception {
@@ -38,6 +40,9 @@ public class ChaosProcessorJob {
     ParameterTool argProperties = ParameterTool.fromArgs(args);
     redisHost = argProperties.get("redis.host", "localhost");
     redisPort = argProperties.getInt("redis.port", 6379);
+    redisPassword = argProperties.get("redis.password", "");
+    redisUser = argProperties.get("redis.user", "default");
+
     redisTopic = argProperties.get("redis.topic", "chaos:topic");
     redisConsumerGroup = argProperties.get("redis.consumer.group", "chaos:group");
     failedDeserializationStreamName = argProperties.get("redis.faileddeserialization.streamname",
@@ -59,7 +64,8 @@ public class ChaosProcessorJob {
 
   public static void buildWorkflow(StreamExecutionEnvironment env) {
     RedisSourceConfig sourceConfig = RedisSourceConfig.builder().host(redisHost).port(redisPort)
-        .consumerGroup(redisConsumerGroup).topicName(redisTopic).numPartitions(redisTopicPartition)
+        .user(redisUser).password(redisPassword).consumerGroup(redisConsumerGroup)
+        .topicName(redisTopic).numPartitions(redisTopicPartition)
         .startingId(StreamEntryID.XGROUP_LAST_ENTRY)
         .failedDeserializationStreamName(failedDeserializationStreamName).requireAck(true).build();
 
@@ -70,16 +76,11 @@ public class ChaosProcessorJob {
     DataStream<ChaosEvent> eventStream = env.fromSource(redisSource,
         WatermarkStrategy.noWatermarks(), "redis_processing_stream", typeInfo);
     System.out.println("File Sink Path: " + Path.CUR_DIR + "/checkpoint/sink");
-    final FileSink<String> sink = FileSink
-        .forRowFormat(new Path(Path.CUR_DIR + "/checkpoint/sink"),
-            new SimpleStringEncoder<String>("UTF-8"))
-        .withRollingPolicy(
-            DefaultRollingPolicy.builder()
-                .withRolloverInterval(Duration.ofMinutes(5))
-                .withInactivityInterval(Duration.ofMinutes(1))
-                .withMaxPartSize(MemorySize.ofMebiBytes(1))
-                .build())
-        .build();
+    final FileSink<String> sink = FileSink.forRowFormat(new Path(Path.CUR_DIR + "/checkpoint/sink"),
+        new SimpleStringEncoder<String>("UTF-8")).withRollingPolicy(
+        DefaultRollingPolicy.builder().withRolloverInterval(Duration.ofMinutes(5))
+            .withInactivityInterval(Duration.ofMinutes(1))
+            .withMaxPartSize(MemorySize.ofMebiBytes(1)).build()).build();
     eventStream.map(ChaosEvent::toString).sinkTo(sink);
     eventStream.print();
   }

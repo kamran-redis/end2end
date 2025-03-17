@@ -25,20 +25,25 @@ public class ChaosProducerJob {
   static int checkpointInterval;
   static int flinkBufferTimeout;
   static String flinkCheckpointStorage;
+  static String redisUser;
+  static String redisPassword;
 
-  public static void main(String args[]) throws Exception {
+  public static void main(String[] args) throws Exception {
 
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
     ParameterTool argProperties = ParameterTool.fromArgs(args);
     redisHost = argProperties.get("redis.host", "localhost");
     redisPort = argProperties.getInt("redis.port", 6379);
+    redisPassword = argProperties.get("redis.password", "");
+    redisUser = argProperties.get("redis.user", "default");
     redisTopic = argProperties.get("redis.topic", "chaos:topic");
 
     parallelism = argProperties.getInt("parallelism", 1);
     checkpointInterval = argProperties.getInt("flink.checkpointing.interval", 10000);
     flinkBufferTimeout = argProperties.getInt("flink.buffer.timeout", 1000);
-    flinkCheckpointStorage= argProperties.get("flink.checkpointstorage", "file:///tmp/checkpoint/Producer");
+    flinkCheckpointStorage = argProperties.get("flink.checkpointstorage",
+        "file:///tmp/checkpoint/Producer");
 
     env.setParallelism(parallelism);
     env.enableCheckpointing(checkpointInterval);
@@ -49,16 +54,15 @@ public class ChaosProducerJob {
   }
 
   public static void buildWorkflow(StreamExecutionEnvironment env) {
-    DataGeneratorSource<ChaosEvent> source = new DataGeneratorSource<>(
-        GenerateData::getEvent, Long.MAX_VALUE, RateLimiterStrategy.perSecond(1),
-        Types.POJO(ChaosEvent.class));
+    DataGeneratorSource<ChaosEvent> source = new DataGeneratorSource<>(GenerateData::getEvent,
+        Long.MAX_VALUE, RateLimiterStrategy.perSecond(1), Types.POJO(ChaosEvent.class));
     //Create a stream from the source
-    DataStream<ChaosEvent> eventStream = env.fromSource(source,
-        WatermarkStrategy.noWatermarks(), "chaos_generator");
+    DataStream<ChaosEvent> eventStream = env.fromSource(source, WatermarkStrategy.noWatermarks(),
+        "chaos_generator");
 
     RedisSinkConfig sinkConfig = RedisSinkConfig.builder().host(redisHost).port(redisPort)
-        .topicName(redisTopic)
-        .numPartitions(1).flushOnCheckpoint(false).build();
+        .user(redisUser).password(redisPassword).topicName(redisTopic).numPartitions(1)
+        .flushOnCheckpoint(false).build();
 
     RedisSink<ChaosEvent> redisSink = new RedisSinkBuilder<>(
         new RedisObjectSerializer<ChaosEvent>(), sinkConfig).keyExtractor(
